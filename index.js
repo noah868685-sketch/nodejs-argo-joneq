@@ -380,7 +380,6 @@ function argoType() {
 // 获取临时隧道domain
 async function extractDomains() {
   let argoDomain;
-
   if (ARGO_AUTH && ARGO_DOMAIN) {
     argoDomain = ARGO_DOMAIN;
     console.log('ARGO_DOMAIN:', argoDomain);
@@ -393,29 +392,20 @@ async function extractDomains() {
       lines.forEach((line) => {
         const domainMatch = line.match(/https?:\/\/([^ ]*trycloudflare\.com)\/?/);
         if (domainMatch) {
-          const domain = domainMatch[1];
-          argoDomains.push(domain);
+          argoDomains.push(domainMatch[1]);
         }
       });
-
       if (argoDomains.length > 0) {
         argoDomain = argoDomains[0];
         console.log('ArgoDomain:', argoDomain);
         await generateLinks(argoDomain);
       } else {
-        console.log('ArgoDomain not found, re-running bot to obtain ArgoDomain');
-        // 删除 boot.log 文件，等待 2s 重新运行 server 以获取 ArgoDomain
+        console.log('ArgoDomain not found, re-running bot');
         fs.unlinkSync(path.join(FILE_PATH, 'boot.log'));
         async function killBotProcess() {
           try {
-            if (process.platform === 'win32') {
-              await exec(`taskkill /f /im ${botName}.exe > nul 2>&1`);
-            } else {
-              await exec(`pkill -f "[${botName.charAt(0)}]${botName.substring(1)}" > /dev/null 2>&1`);
-            }
-          } catch (error) {
-            // 忽略输出
-          }
+            await exec(`pkill -f "[${botName.charAt(0)}]${botName.substring(1)}" > /dev/null 2>&1`);
+          } catch (error) {}
         }
         killBotProcess();
         await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -424,13 +414,14 @@ async function extractDomains() {
           await exec(`nohup ${botPath} ${args} >/dev/null 2>&1 &`);
           console.log(`${botName} is running`);
           await new Promise((resolve) => setTimeout(resolve, 3000));
-          await extractDomains(); // 重新提取域名
+          await extractDomains();
         } catch (error) {
           console.error(`Error executing command: ${error}`);
         }
       }
     } catch (error) {
       console.error('Error reading boot.log:', error);
+    }
   }
 }
 
