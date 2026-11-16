@@ -20,7 +20,8 @@ const NEZHA_KEY = process.env.NEZHA_KEY || '';
 const ARGO_DOMAIN = process.env.ARGO_DOMAIN || '';
 const ARGO_AUTH = process.env.ARGO_AUTH || '';
 const ARGO_PORT = process.env.ARGO_PORT || 8001;
-const CFIP = process.env.CFIP || '';
+// 在这里设置一个默认的 Cloudflare 节点 IP（你也可以随时换成自己本地测出来的优质优选 IP）
+const CFIP = process.env.CFIP || '104.18.32.7';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || '';
 
@@ -325,7 +326,6 @@ async function extractDomains() {
     console.log('ARGO_DOMAIN:', argoDomain);
     await generateLinks(argoDomain);
   } else {
-    // 增加循环等待机制，直到 boot.log 文件生成并成功匹配到 trycloudflare 域名
     let retries = 15;
     while (retries > 0) {
       try {
