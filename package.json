@@ -19,10 +19,3 @@
     "node": ">=14"
   }
 }
-```[cite: 17]
-
-### 保存后操作：
-1. 在 GitHub 上点击 **Commit changes** 保存修改。
-2. 回到 Abasthan 后台，点击右上角的 **Manual Deploy -> Deploy latest commit** 重新触发部署。
-
-这次就能顺利通过依赖安装并正常跑起来了！
