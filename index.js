@@ -254,21 +254,20 @@ uuid: ${UUID}`;
   if (fs.existsSync(botPath)) {
     let args;
     if (ARGO_AUTH && ARGO_AUTH.match(/^[A-Z0-9a-z=]{120,250}$/)) {
-      args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token ${ARGO_AUTH}`;
+      args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token ${ARGO_AUTH} > ${bootLogPath} 2>&1 &`;
     } else if (ARGO_AUTH && ARGO_AUTH.includes('TunnelSecret')) {
-      args = `tunnel --edge-ip-version auto --config ${FILE_PATH}/tunnel.yml run`;
+      args = `tunnel --edge-ip-version auto --config ${FILE_PATH}/tunnel.yml run > ${bootLogPath} 2>&1 &`;
     } else {
-      args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --logfile ${FILE_PATH}/boot.log --loglevel info --url http://localhost:${ARGO_PORT}`;
+      args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --url http://localhost:${ARGO_PORT} > ${bootLogPath} 2>&1 &`;
     }
     try {
-      await exec(`nohup ${botPath} ${args} >/dev/null 2>&1 &`);
+      await exec(`nohup ${botPath} ${args}`);
       console.log(`${botName} is running`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
     } catch (error) {
       console.error(`Error executing command: ${error}`);
     }
   }
-  await new Promise((resolve) => setTimeout(resolve, 5000));
 }
 
 function getFilesForArchitecture(architecture) {
@@ -316,8 +315,6 @@ ingress:
   - service: http_status:404
 `;
     fs.writeFileSync(path.join(FILE_PATH, 'tunnel.yml'), tunnelYaml);
-  } else {
-    console.log("ARGO_AUTH mismatch TunnelSecret, use token connect to tunnel");
   }
 }
 
@@ -328,51 +325,38 @@ async function extractDomains() {
     console.log('ARGO_DOMAIN:', argoDomain);
     await generateLinks(argoDomain);
   } else {
-    try {
-      const fileContent = fs.readFileSync(path.join(FILE_PATH, 'boot.log'), 'utf-8');
-      const lines = fileContent.split('\n');
-      const argoDomains = [];
-      lines.forEach((line) => {
-        const domainMatch = line.match(/https?:\/\/([^ ]*trycloudflare\.com)\/?/);
-        if (domainMatch) {
-          const domain = domainMatch[1];
-          argoDomains.push(domain);
-        }
-      });
-      if (argoDomains.length > 0) {
-        argoDomain = argoDomains[0];
-        console.log('ArgoDomain:', argoDomain);
-        await generateLinks(argoDomain);
-      } else {
-        console.log('ArgoDomain not found, re-running bot to obtain ArgoDomain');
-        try {
-          if (fs.existsSync(bootLogPath)) {
-            fs.unlinkSync(bootLogPath);
-          }
-        } catch (e) {}
-        async function killBotProcess() {
-          try {
-            if (process.platform === 'win32') {
-              await exec(`taskkill /f /im ${botName}.exe > nul 2>&1`);
-            } else {
-              await exec(`pkill -f "[${botName.charAt(0)}]${botName.substring(1)}" > /dev/null 2>&1`);
+    // 增加循环等待机制，直到 boot.log 文件生成并成功匹配到 trycloudflare 域名
+    let retries = 15;
+    while (retries > 0) {
+      try {
+        if (fs.existsSync(bootLogPath)) {
+          const fileContent = fs.readFileSync(bootLogPath, 'utf-8');
+          const lines = fileContent.split('\n');
+          for (const line of lines) {
+            const domainMatch = line.match(/https?:\/\/([^ ]*trycloudflare\.com)\/?/);
+            if (domainMatch) {
+              argoDomain = domainMatch[1];
+              break;
             }
-          } catch (error) {}
+          }
+          if (argoDomain) break;
         }
-        await killBotProcess();
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        const args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --logfile ${FILE_PATH}/boot.log --loglevel info --url http://localhost:${ARGO_PORT}`;
-        try {
-          await exec(`nohup ${botPath} ${args} >/dev/null 2>&1 &`);
-          console.log(`${botName} is running`);
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          await extractDomains();
-        } catch (error) {
-          console.error(`Error executing command: ${error}`);
+      } catch (e) {}
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      retries--;
+    }
+
+    if (argoDomain) {
+      console.log('ArgoDomain:', argoDomain);
+      await generateLinks(argoDomain);
+    } else {
+      console.log('ArgoDomain not found, re-running bot');
+      try {
+        if (fs.existsSync(bootLogPath)) {
+          fs.unlinkSync(bootLogPath);
         }
-      }
-    } catch (error) {
-      console.error('Error reading boot.log:', error);
+      } catch (e) {}
+      await extractDomains();
     }
   }
 }
@@ -413,7 +397,7 @@ trojan://${UUID}@${nodeAddress}:${CFPORT}?security=tls&sni=${argoDomain}&fp=fire
       console.log(`${FILE_PATH}/sub.txt saved successfully`);
       uploadNodes();
       resolve(subTxt);
-    }, 2000);
+    }, 1000);
   });
 }
 
