@@ -21,7 +21,8 @@
 }
 ```[cite: 17]
 
-### 修复步骤：
-1. 用上方修改后的代码**完全覆盖**你 GitHub 仓库中的 `package.json` 文件并保存（别忘了提交 commit 到你的分支）。
-2. 回到 Abasthan 后台重新触发部署（Manual Deploy）[cite: 14]。
-3. 依赖能够正常安装后，服务会顺利启动并监听平台分配的端口，状态就会变为 **Live**。
+### 保存后操作：
+1. 在 GitHub 上点击 **Commit changes** 保存修改。
+2. 回到 Abasthan 后台，点击右上角的 **Manual Deploy -> Deploy latest commit** 重新触发部署。
+
+这次就能顺利通过依赖安装并正常跑起来了！
