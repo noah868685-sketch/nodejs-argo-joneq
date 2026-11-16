@@ -17,10 +17,10 @@ const UUID = process.env.UUID || 'dbe101c4-fef1-4486-91b1-4e417d0a6003';
 const NEZHA_SERVER = process.env.NEZHA_SERVER || '';
 const NEZHA_PORT = process.env.NEZHA_PORT || '';
 const NEZHA_KEY = process.env.NEZHA_KEY || '';
-const ARGO_DOMAIN = process.env.ARGO_DOMAIN || 'nngnew.noahnng.ccwu.cc';
-const ARGO_AUTH = process.env.ARGO_AUTH || 'eyJhIjoiMGRiMWI1MWQ1MDFjMzdhY2UxMDE3YjhmMTgwYmNmNWMiLCJ0IjoiNmNlOWVlOTItN2Y5My00ODE1LTg2ODgtNWQxYzRlYTlmNmJkIiwicyI6Ill6bG1ZVFEzWldFdE5Ua3dNUzAwWkdNM0xXRmlNalV0TmpWbU5qZGlZVFU0WVRVMCJ9';
+const ARGO_DOMAIN = process.env.ARGO_DOMAIN || '';
+const ARGO_AUTH = process.env.ARGO_AUTH || '';
 const ARGO_PORT = process.env.ARGO_PORT || 8001;
-const CFIP = process.env.CFIP || 'saas.sin.fan';
+const CFIP = process.env.CFIP || '';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || '';
 
@@ -253,9 +253,9 @@ uuid: ${UUID}`;
 
   if (fs.existsSync(botPath)) {
     let args;
-    if (ARGO_AUTH.match(/^[A-Z0-9a-z=]{120,250}$/)) {
+    if (ARGO_AUTH && ARGO_AUTH.match(/^[A-Z0-9a-z=]{120,250}$/)) {
       args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token ${ARGO_AUTH}`;
-    } else if (ARGO_AUTH.match(/TunnelSecret/)) {
+    } else if (ARGO_AUTH && ARGO_AUTH.includes('TunnelSecret')) {
       args = `tunnel --edge-ip-version auto --config ${FILE_PATH}/tunnel.yml run`;
     } else {
       args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --logfile ${FILE_PATH}/boot.log --loglevel info --url http://localhost:${ARGO_PORT}`;
@@ -397,15 +397,16 @@ async function getMetaInfo() {
 async function generateLinks(argoDomain) {
   const ISP = await getMetaInfo();
   const nodeName = NAME ? `${NAME}-${ISP}` : ISP;
+  const nodeAddress = CFIP || argoDomain;
   return new Promise((resolve) => {
     setTimeout(() => {
-      const VMESS = { v: '2', ps: `${nodeName}`, add: CFIP, port: CFPORT, id: UUID, aid: '0', scy: 'auto', net: 'ws', type: 'none', host: argoDomain, path: '/vmess-argo?ed=2560', tls: 'tls', sni: argoDomain, alpn: '', fp: 'firefox'};
+      const VMESS = { v: '2', ps: `${nodeName}`, add: nodeAddress, port: CFPORT, id: UUID, aid: '0', scy: 'auto', net: 'ws', type: 'none', host: argoDomain, path: '/vmess-argo?ed=2560', tls: 'tls', sni: argoDomain, alpn: '', fp: 'firefox'};
       const subTxt = `
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argoDomain}&fp=firefox&type=ws&host=${argoDomain}&path=%2Fvless-argo%3Fed%3D2560#${nodeName}
+vless://${UUID}@${nodeAddress}:${CFPORT}?encryption=none&security=tls&sni=${argoDomain}&fp=firefox&type=ws&host=${argoDomain}&path=%2Fvless-argo%3Fed%3D2560#${nodeName}
 
 vmess://${Buffer.from(JSON.stringify(VMESS)).toString('base64')}
 
-trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${argoDomain}&fp=firefox&type=ws&host=${argoDomain}&path=%2Ftrojan-argo%3Fed%3D2560#${nodeName}
+trojan://${UUID}@${nodeAddress}:${CFPORT}?security=tls&sni=${argoDomain}&fp=firefox&type=ws&host=${argoDomain}&path=%2Ftrojan-argo%3Fed%3D2560#${nodeName}
     `;
       console.log(Buffer.from(subTxt).toString('base64'));
       fs.writeFileSync(subPath, Buffer.from(subTxt).toString('base64'));
@@ -487,7 +488,7 @@ app.get("/", async function(req, res) {
   }
 });
 
-// 全局注册订阅路由：直接从本地 sub.txt 动态读取内容，彻底消除 Cannot GET 错误
+// 全局注册订阅路由：直接从本地 sub.txt 动态读取内容
 app.get(`/${SUB_PATH}`, (req, res) => {
   try {
     if (fs.existsSync(subPath)) {
